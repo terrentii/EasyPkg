@@ -1,15 +1,27 @@
-import getpass
 import os
+import subprocess
 
 
 GROUP = "easypkg"
 SUDOERS_PATH = "/etc/sudoers.d/easypkg"
 
 
+def _sudo_nopasswd_works() -> bool:
+    """Проверяет, действительно ли sudo работает без пароля."""
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "true"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
 def setup_done() -> bool:
-    # Файл создаётся с правами 440 (root:root) — читать его мы не можем,
-    # но os.path.exists() не требует прав на чтение, только на x у директории.
-    # Само sudo читает файл от root — всё работает.
     return os.path.exists(SUDOERS_PATH)
 
 
@@ -18,20 +30,26 @@ def needs_wizard() -> bool:
 
 
 def needs_password() -> bool:
-    return not setup_done()
+    if _sudo_nopasswd_works():
+        return False
+    return True
 
 
 def get_setup_cmd(username: str) -> list[str]:
-    line1 = f"# EasyPkg — {username}"
-    line2 = (
-        f"{username} ALL=(ALL) NOPASSWD: "
-        "/usr/bin/pacman, /usr/bin/apt, /usr/bin/apt-get, /usr/bin/dnf, /bin/dnf"
+    allowed = ", ".join([
+        "/usr/bin/pacman",
+        "/usr/bin/apt", "/usr/bin/apt-get",
+        "/usr/bin/dnf", "/bin/dnf",
+    ])
+    content = (
+        f"# EasyPkg — NOPASSWD для пакетных менеджеров\\n"
+        f"{username} ALL=(ALL) NOPASSWD: {allowed}\\n"
     )
-    # printf надёжнее echo и не требует base64
+    tmp = f"{SUDOERS_PATH}.tmp"
     script = (
-        f"groupadd -f {GROUP} && "
-        f"usermod -aG {GROUP} {username} && "
-        f"printf '%s\\n%s\\n' '{line1}' '{line2}' > {SUDOERS_PATH} && "
-        f"chmod 440 {SUDOERS_PATH}"
+        f"printf '{content}' > {tmp} && "
+        f"chmod 440 {tmp} && "
+        f"visudo -c -f {tmp} && "
+        f"mv {tmp} {SUDOERS_PATH}"
     )
     return ["sh", "-c", script]
