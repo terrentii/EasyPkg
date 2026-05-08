@@ -205,12 +205,14 @@ class SetupWizard(QDialog):
 
 
 class SudoDialog(QDialog):
-    """Диалог выполнения команды с sudo и стримингом вывода."""
-    def __init__(self, title: str, cmd: list[str], password: str, success_msg: str, parent=None):
+    def __init__(self, title: str, cmd: list[str], password: str | None,
+                 success_msg: str, parent=None, on_auth_fail=None):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(540, 380)
         self.worker = None
+        self._success_msg = success_msg
+        self._on_auth_fail = on_auth_fail
 
         layout = QVBoxLayout(self)
         layout.setSpacing(8)
@@ -225,7 +227,6 @@ class SudoDialog(QDialog):
         self.close_btn.clicked.connect(self.accept)
         layout.addWidget(self.close_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
-        self._success_msg = success_msg
         self.output.append(f"$ sudo {' '.join(cmd)}\n")
         self.worker = InstallWorker(cmd, password, self)
         self.worker.line_received.connect(self.output.append)
@@ -233,7 +234,16 @@ class SudoDialog(QDialog):
         self.worker.start()
 
     def _on_done(self, success: bool):
-        self.output.append(f"\n{self._success_msg}" if success else "\n❌ Ошибка")
+        if success:
+            self.output.append(f"\n{self._success_msg}")
+        else:
+            self.output.append("\n❌ Ошибка")
+            # Если провал из-за неверного пароля — сбрасываем кеш
+            if self._on_auth_fail:
+                out = self.output.toPlainText().lower()
+                if any(s in out for s in ["sorry, try again", "incorrect password",
+                                          "authentication failure", "is not in the sudoers"]):
+                    self._on_auth_fail()
         self.close_btn.setEnabled(True)
 
 
@@ -253,6 +263,7 @@ def main():
     state: dict = {
         "manager": info["manager"] or "apt",
         "worker": None,
+        "sudo_password": None,  # кешируется на сессию
     }
 
     window.ManagersLabel.setText("Дистрибутив")
@@ -360,28 +371,40 @@ def main():
         w.start()
         state["worker"] = w
 
-    def _get_password(prompt: str) -> tuple[str | None, bool]:
-        """Возвращает (пароль, ok). Если NOPASSWD настроен — (None, True)."""
+    def _get_password() -> str | None:
+        """Пароль из кеша или диалога. None = NOPASSWD. False = отмена."""
         if not needs_password():
-            return None, True
+            return None
+        if state["sudo_password"] is not None:
+            return state["sudo_password"]
         password, ok = QInputDialog.getText(
-            window, "Авторизация", prompt, QLineEdit.EchoMode.Password,
+            window, "Авторизация",
+            "Пароль sudo (запомнится до закрытия приложения):",
+            QLineEdit.EchoMode.Password,
         )
-        return (password, ok) if ok else (None, False)
+        if ok and password:
+            state["sudo_password"] = password
+            return password
+        return False  # отмена
+
+    def _clear_password():
+        state["sudo_password"] = None
 
     def do_install(package_name: str):
-        password, ok = _get_password(f"Пароль sudo для установки '{package_name}':")
-        if not ok:
+        password = _get_password()
+        if password is False:
             return
         cmd = get_install_cmd(state["manager"], package_name)
-        SudoDialog(f"Установка: {package_name}", cmd, password, "✅ Установка завершена", window).exec()
+        SudoDialog(f"Установка: {package_name}", cmd, password,
+                   "✅ Установка завершена", window, on_auth_fail=_clear_password).exec()
 
     def do_remove(package_name: str):
-        password, ok = _get_password(f"Пароль sudo для удаления '{package_name}':")
-        if not ok:
+        password = _get_password()
+        if password is False:
             return
         cmd = get_remove_cmd(state["manager"], package_name)
-        SudoDialog(f"Удаление: {package_name}", cmd, password, "✅ Удаление завершено", window).exec()
+        SudoDialog(f"Удаление: {package_name}", cmd, password,
+                   "✅ Удаление завершено", window, on_auth_fail=_clear_password).exec()
 
     def do_search():
         query = window.SearchbarLineEdit.text().strip()

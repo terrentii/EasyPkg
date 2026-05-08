@@ -1,17 +1,16 @@
 import getpass
 import os
 
+
 GROUP = "easypkg"
 SUDOERS_PATH = "/etc/sudoers.d/easypkg"
 
 
 def setup_done() -> bool:
-    if not os.path.exists(SUDOERS_PATH):
-        return False
-    try:
-        return f"{getpass.getuser()} ALL=" in open(SUDOERS_PATH).read()
-    except OSError:
-        return False
+    # Файл создаётся с правами 440 (root:root) — читать его мы не можем,
+    # но os.path.exists() не требует прав на чтение, только на x у директории.
+    # Само sudo читает файл от root — всё работает.
+    return os.path.exists(SUDOERS_PATH)
 
 
 def needs_wizard() -> bool:
