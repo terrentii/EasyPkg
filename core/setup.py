@@ -1,4 +1,3 @@
-import base64
 import getpass
 import os
 
@@ -7,13 +6,10 @@ SUDOERS_PATH = "/etc/sudoers.d/easypkg"
 
 
 def setup_done() -> bool:
-    """Проверяет что файл существует и содержит правило для конкретного пользователя."""
     if not os.path.exists(SUDOERS_PATH):
         return False
     try:
-        content = open(SUDOERS_PATH).read()
-        # Старое правило было для группы (%easypkg), новое — для пользователя
-        return f"{getpass.getuser()} ALL=" in content
+        return f"{getpass.getuser()} ALL=" in open(SUDOERS_PATH).read()
     except OSError:
         return False
 
@@ -23,24 +19,20 @@ def needs_wizard() -> bool:
 
 
 def needs_password() -> bool:
-    # Правило пишется на конкретного пользователя — достаточно проверить файл
     return not setup_done()
 
 
 def get_setup_cmd(username: str) -> list[str]:
-    # Правило на username, а не на группу: работает сразу без re-login
-    content = (
-        f"# EasyPkg — установка пакетов без пароля для {username}\n"
+    line1 = f"# EasyPkg — {username}"
+    line2 = (
         f"{username} ALL=(ALL) NOPASSWD: "
-        "/usr/bin/pacman, /usr/bin/apt, /usr/bin/apt-get, "
-        "/usr/bin/dnf, /bin/dnf\n"
+        "/usr/bin/pacman, /usr/bin/apt, /usr/bin/apt-get, /usr/bin/dnf, /bin/dnf"
     )
-    content_b64 = base64.b64encode(content.encode()).decode()
-    # Группу всё равно создаём — для порядка
+    # printf надёжнее echo и не требует base64
     script = (
         f"groupadd -f {GROUP} && "
         f"usermod -aG {GROUP} {username} && "
-        f"echo {content_b64} | base64 -d > {SUDOERS_PATH} && "
+        f"printf '%s\\n%s\\n' '{line1}' '{line2}' > {SUDOERS_PATH} && "
         f"chmod 440 {SUDOERS_PATH}"
     )
     return ["sh", "-c", script]

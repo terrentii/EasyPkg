@@ -98,6 +98,24 @@ class InstalledWorker(QThread):
             self.error.emit(str(e))
 
 
+class PopularWorker(QThread):
+    results_ready = pyqtSignal(list)
+
+    def __init__(self, manager: str, packages: list):
+        super().__init__()
+        self.manager = manager
+        self.packages = packages
+
+    def run(self):
+        try:
+            installed = get_installed_names(self.manager)
+            for pkg in self.packages:
+                pkg.installed = pkg.name in installed
+        except Exception:
+            pass  # при ошибке показываем пакеты без статуса
+        self.results_ready.emit(self.packages)
+
+
 class SetupWizard(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -334,7 +352,13 @@ def main():
             pkg_layout.insertWidget(offset + i, make_card(pkg))
 
     def show_popular():
-        show_packages(popular_packages(state["manager"]), header="Популярные пакеты")
+        show_status("Загрузка...")
+        _stop_worker()
+        pkgs = popular_packages(state["manager"])
+        w = PopularWorker(state["manager"], pkgs)
+        w.results_ready.connect(lambda p: show_packages(p, header="Популярные пакеты"))
+        w.start()
+        state["worker"] = w
 
     def _get_password(prompt: str) -> tuple[str | None, bool]:
         """Возвращает (пароль, ok). Если NOPASSWD настроен — (None, True)."""
