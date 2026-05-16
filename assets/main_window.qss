@@ -80,3 +80,67 @@ QFrame#PkgsFrame {
     border-radius: 8px;
     margin: 8px;
 }
+
+/* карточка пакета */
+QFrame#package_card {
+    background-color: #111118;
+    border: 1px solid #1e1e28;
+    border-radius: 8px;
+}
+QFrame#package_card:hover {
+    border-color: #7c3aed;
+}
+
+/* название пакета */
+QLabel#pkg_name {
+    color: #e4e4e9;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* описание пакета */
+QLabel#pkg_desc {
+    color: #888899;
+    font-size: 12px;
+}
+
+/* кнопки в карточке */
+QPushButton#install_btn, QPushButton#remove_btn {
+    background-color: #1a1a24;
+    border: 1px solid #1e1e28;
+    border-radius: 6px;
+    font-size: 16px;
+}
+QPushButton#install_btn:hover {
+    background-color: #2a1a4a;
+    border-color: #7c3aed;
+}
+QPushButton#remove_btn:hover {
+    background-color: #3a1a1a;
+    border-color: #ef4444;
+}
+QPushButton#install_btn:disabled, QPushButton#remove_btn:disabled {
+    opacity: 0.6;
+}
+
+/* область прокрутки карточек */
+QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+QScrollBar:vertical {
+    background-color: #111118;
+    width: 8px;
+    border-radius: 4px;
+}
+QScrollBar::handle:vertical {
+    background-color: #2a2a38;
+    border-radius: 4px;
+    min-height: 20px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #7c3aed;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
