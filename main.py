@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QSizePolicy, QMessageBox,
     QScrollArea, QWidget,
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QObject, QEvent
 from PyQt6.uic import loadUi
 from core.distro_detector import get_distro_info
 from core.pkg_manager import PackageManager
@@ -41,6 +41,17 @@ _installed_names: set[str] = set()
 _sudo_password: str | None = None
 
 _SPINNER = ["▰▱▱▱", "▱▰▱▱", "▱▱▰▱", "▱▱▱▰", "▱▱▰▱", "▱▰▱▱"]
+
+
+class _InstalledBtnFilter(QObject):
+    """Меняет текст кнопки на «УДАЛИТЬ» при наведении и обратно при уходе."""
+    def eventFilter(self, obj, event):
+        if obj.isEnabled():
+            if event.type() == QEvent.Type.Enter:
+                obj.setText("УДАЛИТЬ")
+            elif event.type() == QEvent.Type.Leave:
+                obj.setText("УСТАНОВЛЕН")
+        return False
 
 
 class ButtonSpinner:
@@ -242,12 +253,10 @@ def main():
         a.setSpacing(8)
 
         if is_installed:
-            badge = QLabel("УСТАНОВЛЕН")
-            badge.setObjectName("status_badge")
-            a.addWidget(badge)
-
-            btn = QPushButton("УДАЛИТЬ")
-            btn.setObjectName("remove_btn")
+            btn = QPushButton("УСТАНОВЛЕН")
+            btn.setObjectName("installed_btn")
+            _f = _InstalledBtnFilter(btn)
+            btn.installEventFilter(_f)
         else:
             btn = QPushButton("УСТАНОВИТЬ")
             btn.setObjectName("install_btn")
@@ -280,7 +289,7 @@ def main():
                             if _is_auth_error(msg):
                                 _sudo_password = None
                             _b.setEnabled(True)
-                            _b.setText("УДАЛИТЬ")
+                            _b.setText("УСТАНОВЛЕН")
                             show_error(f"Не удалось удалить {_n}:\n{msg}")
                     if _w in _active_workers:
                         _active_workers.remove(_w)

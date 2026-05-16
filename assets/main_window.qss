@@ -205,6 +205,27 @@ QLabel#status_badge {
     qproperty-alignment: AlignCenter;
 }
 
+QPushButton#installed_btn {
+    background-color: transparent;
+    color: #50fa7b;
+    border: 2px solid #50fa7b;
+    padding: 6px 14px;
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 80px;
+}
+
+QPushButton#installed_btn:hover {
+    background-color: #ff5555;
+    border-color: #ff5555;
+    color: #ffffff;
+}
+
+QPushButton#installed_btn:disabled {
+    border-color: #3a2a2a;
+    color: #3a2a2a;
+}
+
 QPushButton#install_btn {
     background-color: #7c4dff;
     color: #ffffff;
