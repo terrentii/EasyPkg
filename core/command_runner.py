@@ -20,7 +20,7 @@ def run(cmd: list[str], timeout: int = 60) -> tuple[int, str, str]:
 def run_sudo(cmd: list[str], password: str, timeout: int = 60) -> tuple[int, str, str]:
     """Run a command with sudo using the provided password via stdin."""
     try:
-        full_cmd = ["sudo", "-S"] + cmd
+        full_cmd = ["sudo", "-S", "-p", ""] + cmd
         result = subprocess.run(
             full_cmd,
             input=password + "\n",
@@ -30,6 +30,6 @@ def run_sudo(cmd: list[str], password: str, timeout: int = 60) -> tuple[int, str
         )
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
-        return 1, "", "Timeout expired"
+        return 1, "", f"Timeout: команда выполнялась дольше {timeout} секунд"
     except FileNotFoundError:
-        return 1, "", f"Command not found: {cmd[0]}"
+        return 1, "", f"Команда не найдена: {cmd[0]}"

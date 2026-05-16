@@ -31,36 +31,44 @@ class PackageManager:
         if not ok:
             return False, err
         if self.manager == "apt":
-            rc, _, err = run_sudo(["apt", "install", "-y", package], password)
+            rc, out, err = run_sudo(["apt", "install", "-y", package], password, timeout=300)
         elif self.manager == "apt-get":
-            rc, _, err = run_sudo(["apt-get", "install", "-y", package], password)
+            rc, out, err = run_sudo(["apt-get", "install", "-y", package], password, timeout=300)
         elif self.manager == "pacman":
-            rc, _, err = run_sudo(["pacman", "-Sy", "--noconfirm", "--needed", package], password)
+            rc, out, err = run_sudo(
+                ["pacman", "-Sy", "--noconfirm", "--needed", package], password, timeout=300
+            )
         elif self.manager == "dnf":
-            rc, _, err = run_sudo(["dnf", "install", "-y", package], password)
+            rc, out, err = run_sudo(["dnf", "install", "-y", package], password, timeout=300)
         else:
-            return False, "Unsupported package manager"
-        return rc == 0, err
+            return False, "Неподдерживаемый пакетный менеджер"
+        if rc == 0:
+            return True, ""
+        return False, (err.strip() or out.strip() or "Неизвестная ошибка")
 
     def remove(self, package: str, password: str) -> tuple[bool, str]:
         ok, err = self._validate_package(package)
         if not ok:
             return False, err
         if self.manager == "apt":
-            rc, _, err = run_sudo(["apt", "remove", "-y", package], password)
+            rc, out, err = run_sudo(["apt", "remove", "-y", package], password, timeout=300)
         elif self.manager == "apt-get":
-            rc, _, err = run_sudo(["apt-get", "remove", "-y", package], password)
+            rc, out, err = run_sudo(["apt-get", "remove", "-y", package], password, timeout=300)
         elif self.manager == "pacman":
-            rc, _, err = run_sudo(["pacman", "-R", "--noconfirm", package], password)
+            rc, out, err = run_sudo(["pacman", "-R", "--noconfirm", package], password, timeout=300)
         elif self.manager == "dnf":
-            rc, _, err = run_sudo(["dnf", "remove", "-y", package], password)
+            rc, out, err = run_sudo(["dnf", "remove", "-y", package], password, timeout=300)
         else:
-            return False, "Unsupported package manager"
-        return rc == 0, err
+            return False, "Неподдерживаемый пакетный менеджер"
+        if rc == 0:
+            return True, ""
+        return False, (err.strip() or out.strip() or "Неизвестная ошибка")
 
     def list_installed(self) -> list[dict]:
-        if self.manager in ("apt", "apt-get"):
+        if self.manager == "apt":
             return self._apt_list_installed()
+        elif self.manager == "apt-get":
+            return self._rpm_list_installed()
         elif self.manager == "pacman":
             return self._pacman_list_installed()
         elif self.manager == "dnf":
@@ -82,6 +90,17 @@ class PackageManager:
 
     def _apt_list_installed(self) -> list[dict]:
         rc, out, _ = run(["dpkg-query", "-W", "-f=${Package}\t${binary:Summary}\n"])
+        if rc != 0:
+            return []
+        results = []
+        for line in out.splitlines():
+            parts = line.split("\t", 1)
+            if len(parts) == 2:
+                results.append({"name": parts[0].strip(), "description": parts[1].strip()})
+        return results
+
+    def _rpm_list_installed(self) -> list[dict]:
+        rc, out, _ = run(["rpm", "-qa", "--queryformat", "%{NAME}\t%{SUMMARY}\n"])
         if rc != 0:
             return []
         results = []

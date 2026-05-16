@@ -425,9 +425,8 @@ def main():
             window.ManagersListWidget.setCurrentRow(i)
             break
 
-    do_search("git")
-
-    # Тихо грузим кеш установленных пакетов в фоне
+    # Сначала загружаем кеш установленных, потом запускаем поиск —
+    # иначе уже установленные пакеты показываются с кнопкой «УСТАНОВИТЬ»
     if pkg:
         cache_worker = InstalledWorker(pkg)
         _active_workers.append(cache_worker)
@@ -437,9 +436,12 @@ def main():
                 _installed_names.add(r["name"])
             if _w in _active_workers:
                 _active_workers.remove(_w)
+            do_search("git")
 
         cache_worker.results_ready.connect(on_cache_ready)
         cache_worker.start()
+    else:
+        do_search("git")
 
     window.show()
 
