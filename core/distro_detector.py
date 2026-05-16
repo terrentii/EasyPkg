@@ -27,7 +27,7 @@ def get_distro_info():
         return {"family": "arch", "manager": "pacman", "name": dist_name}
         
     if dist_id in ["alt", "rosa", "mos"] or "alt" in dist_like or "rosa" in dist_like:
-        return {"family": "rpm", "manager": "apt", "name": dist_name}
+        return {"family": "rpm", "manager": "apt-get", "name": dist_name}
 
     return {"family": "unknown", "manager": None, "name": dist_name}
 

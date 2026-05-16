@@ -1,4 +1,7 @@
+import re
 from core.command_runner import run, run_sudo
+
+_PKG_NAME_RE = re.compile(r'^[a-zA-Z0-9._+@-]+$')
 
 
 class PackageManager:
@@ -10,7 +13,7 @@ class PackageManager:
         return cls(manager)
 
     def search(self, query: str) -> list[dict]:
-        if self.manager == "apt":
+        if self.manager in ("apt", "apt-get"):
             return self._apt_search(query)
         elif self.manager == "pacman":
             return self._pacman_search(query)
@@ -18,9 +21,19 @@ class PackageManager:
             return self._dnf_search(query)
         return []
 
+    def _validate_package(self, package: str) -> tuple[bool, str]:
+        if not _PKG_NAME_RE.fullmatch(package):
+            return False, f"Недопустимое имя пакета: {package!r}"
+        return True, ""
+
     def install(self, package: str, password: str) -> tuple[bool, str]:
+        ok, err = self._validate_package(package)
+        if not ok:
+            return False, err
         if self.manager == "apt":
             rc, _, err = run_sudo(["apt", "install", "-y", package], password)
+        elif self.manager == "apt-get":
+            rc, _, err = run_sudo(["apt-get", "install", "-y", package], password)
         elif self.manager == "pacman":
             rc, _, err = run_sudo(["pacman", "-Sy", "--noconfirm", "--needed", package], password)
         elif self.manager == "dnf":
@@ -30,8 +43,13 @@ class PackageManager:
         return rc == 0, err
 
     def remove(self, package: str, password: str) -> tuple[bool, str]:
+        ok, err = self._validate_package(package)
+        if not ok:
+            return False, err
         if self.manager == "apt":
             rc, _, err = run_sudo(["apt", "remove", "-y", package], password)
+        elif self.manager == "apt-get":
+            rc, _, err = run_sudo(["apt-get", "remove", "-y", package], password)
         elif self.manager == "pacman":
             rc, _, err = run_sudo(["pacman", "-R", "--noconfirm", package], password)
         elif self.manager == "dnf":
@@ -41,7 +59,7 @@ class PackageManager:
         return rc == 0, err
 
     def list_installed(self) -> list[dict]:
-        if self.manager == "apt":
+        if self.manager in ("apt", "apt-get"):
             return self._apt_list_installed()
         elif self.manager == "pacman":
             return self._pacman_list_installed()
@@ -114,8 +132,11 @@ class PackageManager:
         for line in out.splitlines():
             if " : " in line:
                 name, desc = line.split(" : ", 1)
-                # strip arch suffix like .x86_64
-                name = name.strip().split(".")[0]
+                # strip arch suffix like .x86_64, .noarch, .i686
+                _ARCHES = {"x86_64", "noarch", "i686", "aarch64", "armv7hl", "s390x", "ppc64le"}
+                name = name.strip()
+                if "." in name and name.rsplit(".", 1)[-1] in _ARCHES:
+                    name = name.rsplit(".", 1)[0]
                 results.append({"name": name, "description": desc.strip()})
         return results[:20]
 

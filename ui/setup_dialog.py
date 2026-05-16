@@ -9,9 +9,10 @@ from core.command_runner import run_sudo
 
 
 MANAGER_BINS = {
-    "pacman": "/usr/bin/pacman",
-    "apt":    "/usr/bin/apt",
-    "dnf":    "/usr/bin/dnf",
+    "pacman":  "/usr/bin/pacman",
+    "apt":     "/usr/bin/apt",
+    "apt-get": "/usr/bin/apt-get",
+    "dnf":     "/usr/bin/dnf",
 }
 
 SUDOERS_FILE = "/etc/sudoers.d/easypkg"
@@ -118,10 +119,14 @@ class SetupDialog(QDialog):
 
         rule = f"{self._username} ALL=(ALL) NOPASSWD: {self._bin}\n"
 
-        # Пишем во временный файл без sudo (без shell-кавычек)
-        tmp = tempfile.mktemp(prefix="easypkg_", suffix=".sudoers")
+        # Создаём временный файл атомарно (защита от TOCTOU/symlink-атак)
+        tmp = None
         try:
-            with open(tmp, "w") as f:
+            with tempfile.NamedTemporaryFile(
+                prefix="easypkg_", suffix=".sudoers",
+                dir="/tmp", delete=False, mode="w"
+            ) as f:
+                tmp = f.name
                 f.write(rule)
         except OSError as e:
             self._set_status(f"Ошибка записи: {e}", error=True)
