@@ -1,3 +1,4 @@
+from PyQt6 import sip
 from PyQt6.QtCore import QObject, QEvent, Qt
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QApplication
@@ -44,6 +45,9 @@ class ResizeFilter(QObject):
         QApplication.instance().installEventFilter(self)
 
     def eventFilter(self, obj, event):
+        if sip.isdeleted(self._win):
+            QApplication.instance().removeEventFilter(self)
+            return False
         if self._win.isMaximized():
             return False
 

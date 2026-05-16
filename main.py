@@ -14,6 +14,7 @@ from core.worker import SearchWorker, InstalledWorker, InstallWorker, RemoveWork
 from ui.password_dialog import PasswordDialog
 from ui.title_bar import TitleBar
 from ui.resize_filter import ResizeFilter
+from ui.setup_dialog import SetupDialog, is_setup_done
 
 DISTRO_ITEM_MAP = {
     "arch": "Arch Linux (pacman)",
@@ -37,6 +38,7 @@ DISTRO_ITEM_MAP = {
 
 _active_workers = []
 _installed_names: set[str] = set()
+_sudo_password: str | None = None
 
 _SPINNER = ["▰▱▱▱", "▱▰▱▱", "▱▱▰▱", "▱▱▱▰", "▱▱▰▱", "▱▰▱▱"]
 
@@ -144,8 +146,30 @@ def main():
 
     # ── Вспомогательные функции ──
 
+    # Если sudoers уже настроен — пароль не нужен
+    global _sudo_password
+    mgr_name = info["manager"] or ""
+    if is_setup_done(mgr_name):
+        _sudo_password = ""
+
     base_title = f"◈ EasyPkg — {info['name']}"
     titlebar.set_title(base_title)
+
+    def open_setup():
+        global _sudo_password
+        dlg = SetupDialog(mgr_name, window)
+        dlg.exec()
+        if is_setup_done(mgr_name):
+            _sudo_password = ""
+
+    # Кнопка настройки sudo в сайдбаре (над "Скачанные пакеты")
+    setup_btn = QPushButton("⚙ НАСТРОЙКА SUDO")
+    setup_btn.setObjectName("InstalledButton")
+    setup_btn.setMinimumHeight(45)
+    setup_btn.clicked.connect(open_setup)
+    sidebar_layout = window.SidebarFrame.layout().itemAt(0).layout()
+    # Вставляем перед InstalledButton (последний элемент, индекс 3)
+    sidebar_layout.insertWidget(sidebar_layout.count() - 1, setup_btn)
 
     def set_status(text: str):
         titlebar.set_title(f"◈ EasyPkg — {info['name']}  |  {text}")
@@ -164,6 +188,20 @@ def main():
 
     def show_error(msg: str):
         QMessageBox.critical(window, "Ошибка", msg)
+
+    def _is_auth_error(msg: str) -> bool:
+        keywords = ("incorrect password", "try again", "authentication failure",
+                    "Sorry", "пароль", "password")
+        return any(k.lower() in msg.lower() for k in keywords)
+
+    def get_sudo_password(prompt: str) -> str | None:
+        global _sudo_password
+        if _sudo_password is not None:
+            return _sudo_password
+        pwd = PasswordDialog(window, prompt).get_password()
+        if pwd is not None:
+            _sudo_password = pwd
+        return pwd
 
     def make_row(name: str, desc: str, is_installed: bool = False):
         row = QFrame()
@@ -220,8 +258,7 @@ def main():
         # Логика кнопок
         if is_installed:
             def on_remove(checked=False, _name=name, _btn=btn):
-                dialog = PasswordDialog(window, f"Пароль sudo для удаления «{_name}»:")
-                password = dialog.get_password()
+                password = get_sudo_password(f"Пароль sudo для удаления «{_name}»:")
                 if password is None:
                     return
                 _btn.setEnabled(False)
@@ -231,6 +268,7 @@ def main():
                 _active_workers.append(worker)
 
                 def on_done(success: bool, msg: str, _w=worker, _b=_btn, _n=_name, _s=spinner):
+                    global _sudo_password
                     _s.stop()
                     reset_status()
                     if not sip.isdeleted(_b):
@@ -239,6 +277,8 @@ def main():
                             _b.setText("УДАЛЁН")
                             _b.setStyleSheet("color: #50fa7b; border-color: #50fa7b;")
                         else:
+                            if _is_auth_error(msg):
+                                _sudo_password = None
                             _b.setEnabled(True)
                             _b.setText("УДАЛИТЬ")
                             show_error(f"Не удалось удалить {_n}:\n{msg}")
@@ -251,8 +291,7 @@ def main():
             btn.clicked.connect(on_remove)
         else:
             def on_install(checked=False, _name=name, _btn=btn):
-                dialog = PasswordDialog(window, f"Пароль sudo для установки «{_name}»:")
-                password = dialog.get_password()
+                password = get_sudo_password(f"Пароль sudo для установки «{_name}»:")
                 if password is None:
                     return
                 _btn.setEnabled(False)
@@ -262,6 +301,7 @@ def main():
                 _active_workers.append(worker)
 
                 def on_done(success: bool, msg: str, _w=worker, _b=_btn, _n=_name, _s=spinner):
+                    global _sudo_password
                     _s.stop()
                     reset_status()
                     if not sip.isdeleted(_b):
@@ -273,6 +313,8 @@ def main():
                                 "border: 2px solid #50fa7b;"
                             )
                         else:
+                            if _is_auth_error(msg):
+                                _sudo_password = None
                             _b.setEnabled(True)
                             _b.setText("УСТАНОВИТЬ")
                             show_error(f"Не удалось установить {_n}:\n{msg}")
@@ -400,6 +442,11 @@ def main():
         cache_worker.start()
 
     window.show()
+
+    # Первый запуск — показываем настройку sudoers автоматически
+    if pkg and not is_setup_done(mgr_name):
+        QTimer.singleShot(300, open_setup)
+
     sys.exit(app.exec())
 
 
