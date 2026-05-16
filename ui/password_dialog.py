@@ -45,44 +45,46 @@ class PasswordDialog(QDialog):
 
     def _apply_styles(self):
         self.setStyleSheet("""
+            * { font-family: "JetBrains Mono", "Courier New", monospace; border-radius: 0px; }
             QDialog {
-                background-color: #111118;
-                color: #e4e4e9;
+                background-color: #0c0c0c;
+                color: #d0d0d0;
+                border: 3px solid #7c4dff;
             }
             QLabel {
-                color: #e4e4e9;
-                font-size: 13px;
+                color: #d0d0d0;
+                font-size: 12px;
+                background: transparent;
             }
             QLineEdit {
-                background-color: #0a0a0f;
-                border: 1px solid #1e1e28;
-                border-radius: 6px;
-                padding: 6px;
-                color: #e4e4e9;
+                background-color: #0c0c0c;
+                border: 2px solid #333;
+                padding: 10px 14px;
+                color: #d0d0d0;
                 font-size: 13px;
             }
-            QLineEdit:focus {
-                border-color: #7c3aed;
-            }
+            QLineEdit:focus { border-color: #7c4dff; }
             QPushButton {
-                background-color: #1a1a24;
-                border: 1px solid #1e1e28;
-                border-radius: 6px;
-                padding: 6px 16px;
-                color: #e4e4e9;
-                font-size: 13px;
+                background-color: #141414;
+                border: 2px solid #333;
+                padding: 8px 18px;
+                color: #d0d0d0;
+                font-size: 11px;
+                font-weight: 800;
             }
             QPushButton:hover {
-                border-color: #7c3aed;
-                color: #7c3aed;
+                background-color: #d0d0d0;
+                color: #0c0c0c;
+                border-color: #d0d0d0;
             }
             QPushButton#btn_ok {
-                background-color: #7c3aed;
-                border-color: #7c3aed;
+                background-color: #7c4dff;
+                border-color: #7c4dff;
                 color: white;
             }
             QPushButton#btn_ok:hover {
-                background-color: #6d28d9;
+                background-color: #9e7bff;
+                border-color: #9e7bff;
             }
         """)
         self.btn_ok.setObjectName("btn_ok")

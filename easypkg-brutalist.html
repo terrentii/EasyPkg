@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyPkg — Brutalist Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+
+        :root {
+            --bg: #0c0c0c;
+            --fg: #d0d0d0;
+            --accent: #7c4dff;
+            --accent-bright: #9e7bff;
+            --accent-dark: #5c35cc;
+            --green: #50fa7b;
+            --red: #ff5555;
+            --yellow: #f1fa8c;
+            --dim: #4a4a4a;
+            --panel: #141414;
+            --border: 2px solid #333;
+            --border-thick: 3px solid #333;
+            --border-accent: 2px solid var(--accent);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: var(--bg);
+            color: var(--fg);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* ========== WINDOW CHROME ========== */
+        .window {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            border: var(--border-thick);
+        }
+
+        .titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            border-bottom: var(--border-thick);
+            background: var(--panel);
+            text-transform: uppercase;
+            font-weight: 800;
+            font-size: 12px;
+            letter-spacing: 1px;
+            user-select: none;
+        }
+
+        .titlebar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .titlebar-left span:first-child {
+            color: var(--accent);
+            font-size: 16px;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .win-btn {
+            width: 28px;
+            height: 20px;
+            border: var(--border);
+            background: var(--bg);
+            color: var(--fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .win-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        /* ========== LAYOUT ========== */
+        .main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* ========== SIDEBAR ========== */
+        .sidebar {
+            width: 280px;
+            border-right: var(--border-thick);
+            display: flex;
+            flex-direction: column;
+            background: var(--panel);
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            border-bottom: var(--border);
+            text-transform: uppercase;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: var(--accent-bright);
+        }
+
+        .distro-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .distro-item {
+            display: block;
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border: var(--border);
+            background: var(--panel);
+            color: var(--fg);
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            text-align: left;
+            font-weight: 700;
+            transition: all 0.05s;
+            letter-spacing: 0.5px;
+        }
+
+        .distro-item:hover {
+            border-color: var(--accent);
+            color: var(--accent-bright);
+        }
+
+        .distro-item.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .sidebar-footer {
+            padding: 12px 16px;
+            border-top: var(--border);
+        }
+
+        .sidebar-footer button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: var(--border);
+            background: var(--panel);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-footer button:hover {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        /* ========== CONTENT AREA ========== */
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ========== SEARCH BAR ========== */
+        .search-bar {
+            display: flex;
+            padding: 12px;
+            border-bottom: var(--border-thick);
+            gap: 8px;
+            background: var(--panel);
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: var(--border);
+            background: var(--bg);
+            color: var(--fg);
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: var(--dim);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: var(--border);
+            background: var(--panel);
+            color: var(--fg);
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.05s;
+        }
+
+        .btn:hover {
+            background: var(--fg);
+            color: var(--bg);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-bright);
+            border-color: var(--accent-bright);
+            color: #fff;
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--red);
+            border-color: var(--red);
+        }
+
+        .btn-danger:hover {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .btn-small {
+            padding: 6px 14px;
+            font-size: 10px;
+        }
+
+        /* ========== PACKAGE LIST ========== */
+        .package-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .section-title {
+            padding: 12px 16px;
+            border-bottom: var(--border);
+            text-transform: uppercase;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: var(--accent-bright);
+            background: var(--panel);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        .package-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: var(--border);
+            transition: background 0.05s;
+        }
+
+        .package-item:hover {
+            background: rgba(124, 77, 255, 0.05);
+        }
+
+        .package-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .package-name {
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .package-name .version {
+            color: var(--dim);
+            font-weight: 400;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .package-desc {
+            color: var(--dim);
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .package-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 8px;
+            border: 1px solid var(--green);
+            color: var(--green);
+            background: rgba(80, 250, 123, 0.1);
+        }
+
+        .status-badge.removing {
+            border-color: var(--red);
+            color: var(--red);
+            background: rgba(255, 85, 85, 0.1);
+        }
+
+        .btn-small {
+            padding: 6px 14px;
+            font-size: 10px;
+        }
+
+        /* ========== MODAL / TERMINAL ========== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            width: 720px;
+            max-width: 100%;
+            max-height: 80vh;
+            border: var(--border-thick);
+            border-color: var(--accent);
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(124, 77, 255, 0.15);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: var(--border-thick);
+            border-color: var(--accent);
+            background: var(--panel);
+            text-transform: uppercase;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
+        .modal-close {
+            width: 28px;
+            height: 22px;
+            border: var(--border);
+            background: var(--bg);
+            color: var(--fg);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .terminal {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .terminal .line {
+            margin-bottom: 2px;
+        }
+
+        .terminal .cmd {
+            color: var(--green);
+        }
+
+        .terminal .cmd::before {
+            content: "$ ";
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .terminal .output {
+            color: var(--fg);
+        }
+
+        .terminal .dim {
+            color: var(--dim);
+        }
+
+        .terminal .success {
+            color: var(--green);
+            font-weight: 800;
+        }
+
+        .terminal .success::before {
+            content: "✓ ";
+        }
+
+        .terminal .error {
+            color: var(--red);
+            font-weight: 800;
+        }
+
+        .terminal .error::before {
+            content: "✗ ";
+        }
+
+        .terminal .warning {
+            color: var(--yellow);
+        }
+
+        .modal-footer {
+            padding: 12px 16px;
+            border-top: var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            background: var(--panel);
+        }
+
+        /* ========== SETUP SCREEN ========== */
+        .setup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .setup-overlay.active {
+            display: flex;
+        }
+
+        .setup-box {
+            width: 520px;
+            max-width: 100%;
+            border: var(--border-thick);
+            border-color: var(--accent);
+            background: var(--bg);
+            box-shadow: 0 0 40px rgba(124, 77, 255, 0.2);
+        }
+
+        .setup-header {
+            padding: 16px;
+            border-bottom: var(--border-thick);
+            border-color: var(--accent);
+            background: var(--panel);
+            text-transform: uppercase;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 2px;
+            color: var(--accent-bright);
+        }
+
+        .setup-body {
+            padding: 24px 20px;
+        }
+
+        .setup-body p {
+            margin-bottom: 16px;
+            line-height: 1.6;
+            font-size: 12px;
+        }
+
+        .setup-body strong {
+            color: var(--accent-bright);
+        }
+
+        .setup-body ul {
+            list-style: none;
+            margin-bottom: 20px;
+            padding: 0;
+        }
+
+        .setup-body ul li {
+            padding: 4px 0;
+            font-size: 12px;
+            color: var(--dim);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .setup-body ul li::before {
+            content: "▸ ";
+            color: var(--accent);
+            font-weight: 800;
+        }
+
+        .setup-input {
+            width: 100%;
+            padding: 12px 14px;
+            border: var(--border);
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            margin-bottom: 16px;
+            outline: none;
+        }
+
+        .setup-input:focus {
+            border-color: var(--accent);
+        }
+
+        .setup-footer {
+            padding: 16px 20px;
+            border-top: var(--border);
+            display: flex;
+            justify-content: space-between;
+            background: var(--panel);
+        }
+
+        .terminal-preview {
+            background: #0a0a0a;
+            border: var(--border);
+            padding: 12px;
+            margin-bottom: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .terminal-preview .cmd-line {
+            color: var(--green);
+        }
+
+        .terminal-preview .cmd-line::before {
+            content: "$ ";
+            color: var(--accent);
+        }
+
+        .terminal-preview .ok-line {
+            color: var(--green);
+            margin-top: 8px;
+        }
+
+        .terminal-preview .ok-line::before {
+            content: "✓ ";
+        }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+            border-left: var(--border);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-dark);
+            border: 2px solid var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== MAIN WINDOW ==================== -->
+    <div class="window" id="mainWindow">
+        <!-- Title Bar -->
+        <div class="titlebar">
+            <div class="titlebar-left">
+                <span>◈</span>
+                <span id="windowTitle">EasyPkg — Arch Linux (pacman)</span>
+            </div>
+            <div class="window-controls">
+                <button class="win-btn">_</button>
+                <button class="win-btn">□</button>
+                <button class="win-btn">✕</button>
+            </div>
+        </div>
+
+        <div class="main">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-header">// Дистрибутив</div>
+                <div class="distro-list">
+                    <button class="distro-item active" data-distro="arch" onclick="selectDistro(this)">Arch Linux (pacman)</button>
+                    <button class="distro-item" data-distro="fedora" onclick="selectDistro(this)">Fedora (dnf)</button>
+                    <button class="distro-item" data-distro="debian" onclick="selectDistro(this)">Debian / Ubuntu (apt)</button>
+                    <button class="distro-item" data-distro="astra" onclick="selectDistro(this)">Astra Linux (SE)</button>
+                    <button class="distro-item" data-distro="redos" onclick="selectDistro(this)">РЕД ОС</button>
+                    <button class="distro-item" data-distro="alt" onclick="selectDistro(this)">ALT Linux / МОС</button>
+                </div>
+                <div class="sidebar-footer">
+                    <button onclick="showInstalled()">▼ Скачанные пакеты</button>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <!-- Search -->
+                <div class="search-bar">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Поиск пакетов..." onkeydown="if(event.key==='Enter')doSearch()">
+                    <button class="btn" onclick="doSearch()">Поиск</button>
+                </div>
+
+                <!-- Package List -->
+                <div class="package-list" id="packageList">
+                    <div class="section-title" id="listTitle">// Популярные пакеты</div>
+                    <div id="listContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== INSTALL/REMOVE MODAL / TERMINAL ==================== -->
+    <div class="modal-overlay" id="actionModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="modalTitle">:: ТЕРМИНАЛ</span>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="terminal" id="terminal"></div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal()" id="modalCloseBtn" style="display:none">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SETUP SCREEN ==================== -->
+    <div class="setup-overlay active" id="setupScreen">
+        <div class="setup-box">
+            <div class="setup-header">:: Первый запуск</div>
+            <div class="setup-body">
+                <p>EasyPkg создаст группу <strong>easypkg</strong> и настроит sudo, чтобы участники группы могли устанавливать и удалять пакеты без ввода пароля.</p>
+                <p style="color:var(--dim)">Будет выполнено:</p>
+                <ul>
+                    <li>groupadd easypkg</li>
+                    <li>usermod -aG easypkg $USER</li>
+                    <li>/etc/sudoers.d/easypkg — NOPASSWD для менеджеров пакетов</li>
+                </ul>
+                <div class="terminal-preview" id="setupTerminalPreview">
+                    <div class="cmd-line">sudo -S sh -c '...'</div>
+                    <div style="color:var(--dim); margin-top:4px">[sudo] password for user:</div>
+                    <div class="ok-line">Готово. Пароль больше не потребуется.</div>
+                </div>
+                <input type="password" class="setup-input" id="setupPassword" placeholder="Пароль sudo...">
+            </div>
+            <div class="setup-footer">
+                <button class="btn btn-small" onclick="skipSetup()">Закрыть</button>
+                <button class="btn btn-primary btn-small" onclick="completeSetup()">Настроить →</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== DISTRO CONFIG ====================
+        const distroConfig = {
+            arch: {
+                name: 'Arch Linux (pacman)',
+                install: (pkg) => `sudo pacman -S --noconfirm ${pkg}`,
+                remove: (pkg) => `sudo pacman -R --noconfirm ${pkg}`,
+                installLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo pacman -S --noconfirm ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'resolving dependencies...' },
+                    { cls: 'output', text: 'looking for conflicting packages...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Packages (1) ${pkg}-latest-1` },
+                    { cls: 'output', text: 'Total Installed Size:  5.49 MiB' },
+                    { cls: 'dim', text: ':: Proceed with installation? [Y/n]' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: ':: Processing package changes...' },
+                    { cls: 'output', text: `installing ${pkg}...` },
+                    { cls: 'output', text: ':: Running post-transaction hooks...' },
+                    { cls: 'output', text: '(1/1) Arming ConditionNeedsUpdate...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Установка ${pkg} завершена` },
+                ],
+                removeLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo pacman -R --noconfirm ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'checking dependencies...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Packages (1) ${pkg}-latest-1` },
+                    { cls: 'output', text: 'Total Removed Size:  5.49 MiB' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: ':: Processing package changes...' },
+                    { cls: 'output', text: `removing ${pkg}...` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Удаление ${pkg} завершено` },
+                ],
+                errorLines: (pkg, err) => [
+                    { cls: 'cmd', text: `sudo pacman -S --noconfirm ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'resolving dependencies...' },
+                    { cls: 'output', text: 'looking for conflicting packages...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'error', text: err || 'Ошибка: пакет не найден в репозиториях' },
+                ]
+            },
+            fedora: {
+                name: 'Fedora (dnf)',
+                install: (pkg) => `sudo dnf install -y ${pkg}`,
+                remove: (pkg) => `sudo dnf remove -y ${pkg}`,
+                installLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo dnf install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Last metadata expiration check: 0:02:31 ago.` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Dependencies resolved.' },
+                    { cls: 'output', text: ` Package          Arch        Version        Repository     Size` },
+                    { cls: 'output', text: `─────────────────────────────────────────────────────────────` },
+                    { cls: 'output', text: `Installing: ${pkg} x86_64 latest-1      updates       5.4 M` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Transaction Summary' },
+                    { cls: 'output', text: 'Install  1 Package' },
+                    { cls: 'output', text: 'Total download size: 5.4 M' },
+                    { cls: 'output', text: 'Installed size: 15 M' },
+                    { cls: 'output', text: 'Downloading Packages:' },
+                    { cls: 'output', text: `${pkg}-latest-1.x86_64.rpm       1.2 MB/s | 5.4 MB     00:04` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Running transaction check' },
+                    { cls: 'output', text: 'Running transaction test' },
+                    { cls: 'output', text: 'Transaction test succeeded' },
+                    { cls: 'output', text: 'Running transaction' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `  Preparing:     ${pkg}-latest-1.x86_64   1/1` },
+                    { cls: 'output', text: `  Installing:    ${pkg}-latest-1.x86_64   1/1` },
+                    { cls: 'output', text: `  Verifying:     ${pkg}-latest-1.x86_64   1/1` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Complete!' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Установка ${pkg} завершена` },
+                ],
+                removeLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo dnf remove -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Dependencies resolved.' },
+                    { cls: 'output', text: ` Package          Arch        Version        Repository     Size` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Removing: ${pkg} x86_64 latest-1      @System       5.4 M` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Running transaction check' },
+                    { cls: 'output', text: 'Running transaction test' },
+                    { cls: 'output', text: 'Transaction test succeeded' },
+                    { cls: 'output', text: 'Running transaction' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `  Preparing:     ${pkg}-latest-1.x86_64   1/1` },
+                    { cls: 'output', text: `  Erasing:       ${pkg}-latest-1.x86_64   1/1` },
+                    { cls: 'output', text: `  Verifying:     ${pkg}-latest-1.x86_64   1/1` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Removed: ' + pkg + '-latest-1.x86_64' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Удаление ${pkg} завершено` },
+                ],
+                errorLines: (pkg, err) => [
+                    { cls: 'cmd', text: `sudo dnf install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Last metadata expiration check: 0:02:31 ago.` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'error', text: err || 'Ошибка: Не удалось найти пакет в репозиториях Fedora' },
+                ]
+            },
+            debian: {
+                name: 'Debian / Ubuntu (apt)',
+                install: (pkg) => `sudo apt install -y ${pkg}`,
+                remove: (pkg) => `sudo apt remove -y ${pkg}`,
+                installLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo apt install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Reading package lists... Done' },
+                    { cls: 'output', text: 'Building dependency tree... Done' },
+                    { cls: 'output', text: 'Reading state information... Done' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `The following NEW packages will be installed:` },
+                    { cls: 'output', text: `  ${pkg}` },
+                    { cls: 'output', text: `0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.` },
+                    { cls: 'output', text: `Need to get 5,490 kB of archives.` },
+                    { cls: 'output', text: `After this operation, 15.2 MB of additional disk space will be used.` },
+                    { cls: 'output', text: `Get:1 http://deb.debian.org/debian stable/main amd64 ${pkg} amd64 latest-1 [5,490 kB]` },
+                    { cls: 'output', text: `Fetched 5,490 kB in 2s (2,745 kB/s)` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Selecting previously unselected package ' + pkg + '.' },
+                    { cls: 'output', text: 'Preparing to unpack .../' + pkg + '_latest-1_amd64.deb ...' },
+                    { cls: 'output', text: 'Unpacking ' + pkg + ' (latest-1) ...' },
+                    { cls: 'output', text: 'Setting up ' + pkg + ' (latest-1) ...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Установка ${pkg} завершена` },
+                ],
+                removeLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo apt remove -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Reading package lists... Done' },
+                    { cls: 'output', text: 'Building dependency tree... Done' },
+                    { cls: 'output', text: 'Reading state information... Done' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `The following packages will be REMOVED:` },
+                    { cls: 'output', text: `  ${pkg}` },
+                    { cls: 'output', text: `0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.` },
+                    { cls: 'output', text: `After this operation, 15.2 MB disk space will be freed.` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: '(Reading database ... 184732 files and directories currently installed.)' },
+                    { cls: 'output', text: 'Removing ' + pkg + ' (latest-1) ...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Удаление ${pkg} завершено` },
+                ],
+                errorLines: (pkg, err) => [
+                    { cls: 'cmd', text: `sudo apt install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Reading package lists... Done' },
+                    { cls: 'output', text: 'Building dependency tree... Done' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'error', text: err || 'E: Unable to locate package ' + pkg },
+                ]
+            },
+            astra: {
+                name: 'Astra Linux (SE)',
+                install: (pkg) => `sudo apt-get install -y ${pkg}`,
+                remove: (pkg) => `sudo apt-get remove -y ${pkg}`,
+                installLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo apt-get install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Reading package lists... Done' },
+                    { cls: 'output', text: 'Building dependency tree... Done' },
+                    { cls: 'output', text: 'Reading state information... Done' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `The following NEW packages will be installed:` },
+                    { cls: 'output', text: `  ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Setting up ' + pkg + ' (latest-1) ...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Установка ${pkg} завершена` },
+                ],
+                removeLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo apt-get remove -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Reading package lists... Done' },
+                    { cls: 'output', text: 'Building dependency tree... Done' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Removing ${pkg} (latest-1) ...` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Удаление ${pkg} завершено` },
+                ],
+                errorLines: (pkg, err) => [
+                    { cls: 'cmd', text: `sudo apt-get install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'error', text: err || 'E: Не удалось найти пакет ' + pkg },
+                ]
+            },
+            redos: {
+                name: 'РЕД ОС',
+                install: (pkg) => `sudo yum install -y ${pkg}`,
+                remove: (pkg) => `sudo yum remove -y ${pkg}`,
+                installLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo yum install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Loaded plugins: fastestmirror, langpacks' },
+                    { cls: 'output', text: 'Loading mirror speeds from cached hostfile' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Resolving Dependencies` },
+                    { cls: 'output', text: `--> Running transaction check` },
+                    { cls: 'output', text: `--> Package ${pkg}.x86_64 latest-1 will be installed` },
+                    { cls: 'output', text: `--> Finished Dependency Resolution` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Installed:' },
+                    { cls: 'output', text: `  ${pkg}.x86_64 latest-1` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Установка ${pkg} завершена` },
+                ],
+                removeLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo yum remove -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Loaded plugins: fastestmirror, langpacks' },
+                    { cls: 'output', text: 'Resolving Dependencies' },
+                    { cls: 'output', text: '--> Running transaction check' },
+                    { cls: 'output', text: `--> Package ${pkg}.x86_64 latest-1 will be erased` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Removed:' },
+                    { cls: 'output', text: `  ${pkg}.x86_64 latest-1` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Удаление ${pkg} завершено` },
+                ],
+                errorLines: (pkg, err) => [
+                    { cls: 'cmd', text: `sudo yum install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'error', text: err || 'Ошибка: пакет не найден' },
+                ]
+            },
+            alt: {
+                name: 'ALT Linux / МОС',
+                install: (pkg) => `sudo apt-get install -y ${pkg}`,
+                remove: (pkg) => `sudo apt-get remove -y ${pkg}`,
+                installLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo apt-get install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Reading Package Lists... Done' },
+                    { cls: 'output', text: 'Building Dependency Tree... Done' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Следующие НОВЫЕ пакеты будут установлены:` },
+                    { cls: 'output', text: `  ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Установка ' + pkg + ' ...' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Установка ${pkg} завершена` },
+                ],
+                removeLines: (pkg) => [
+                    { cls: 'cmd', text: `sudo apt-get remove -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: 'Reading Package Lists... Done' },
+                    { cls: 'output', text: 'Building Dependency Tree... Done' },
+                    { cls: 'dim', text: '' },
+                    { cls: 'output', text: `Удаление ${pkg} ...` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'success', text: `Удаление ${pkg} завершено` },
+                ],
+                errorLines: (pkg, err) => [
+                    { cls: 'cmd', text: `sudo apt-get install -y ${pkg}` },
+                    { cls: 'dim', text: '' },
+                    { cls: 'error', text: err || 'E: Не удалось найти пакет ' + pkg },
+                ]
+            }
+        };
+
+        // ==================== DATA ====================
+        let currentDistro = 'arch';
+        let currentView = 'popular';
+
+        let popularPackages = [
+            { name: 'firefox', desc: 'Браузер Firefox', installed: true },
+            { name: 'git', desc: 'Система контроля версий', installed: true },
+            { name: 'neovim', desc: 'Текстовый редактор на базе Vim', installed: false },
+            { name: 'htop', desc: 'Интерактивный монитор процессов', installed: true },
+            { name: 'vlc', desc: 'Медиаплеер', installed: false },
+            { name: 'docker', desc: 'Контейнеризация приложений', installed: true },
+            { name: 'python', desc: 'Язык программирования Python 3', installed: true },
+            { name: 'nodejs', desc: "JavaScript runtime built on Chrome's V8", installed: false },
+            { name: 'postgresql', desc: 'Объектно-реляционная СУБД', installed: false },
+            { name: 'nginx', desc: 'Веб-сервер и обратный прокси', installed: true },
+            { name: 'tmux', desc: 'Терминальный мультиплексор', installed: true },
+            { name: 'ripgrep', desc: 'Ультрабыстрый поиск по содержимому файлов', installed: false },
+        ];
+
+        const installedPackages = [
+            'a52dec', 'aalib', 'abseil-cpp', 'accounts-qml-module',
+            'accountsservice', 'acl', 'ada', 'adobe-source-han-sans-jp-fonts',
+            'adwaita-cursors', 'adwaita-icon-theme', 'alsa-lib', 'alsa-topology-conf',
+            'alsa-ucm-conf', 'android-tools', 'aom', 'apache', 'appstream',
+            'archlinux-keyring', 'argon2', 'aspell', 'assimp', 'at-spi2-core',
+            'atkmm', 'attr', 'audit', 'autoconf', 'automake', 'avahi', 'bash',
+            'binutils', 'bison', 'bluez', 'bluez-libs', 'boost-libs', 'brotli',
+            'bzip2', 'c-ares', 'ca-certificates', 'cairo', 'cairomm', 'cantarell-fonts',
+            'ccache', 'cdparanoia', 'celt', 'cmake', 'coreutils', 'cryptsetup',
+            'curl', 'dav1d', 'db5.3', 'dbus', 'dbus-glib', 'dconf', 'desktop-file-utils',
+            'device-mapper', 'diffutils', 'ding-libs', 'dnssec-anchors', 'dosfstools',
+            'double-conversion', 'e2fsprogs', 'efibootmgr', 'efivar', 'elfutils',
+            'enchant', 'expat', 'f2fs-tools', 'faac', 'faad2', 'fakeroot',
+            'fd', 'ffmpeg', 'ffmpeg4.4', 'fftw', 'file', 'filesystem', 'findutils',
+            'firefox', 'fish', 'flac', 'flex', 'fontconfig', 'freeglut', 'freetype2',
+            'fribidi', 'fuse2', 'fuse3', 'gawk', 'gc', 'gcc', 'gcc-libs', 'gcr',
+            'gd', 'gdbm', 'gdk-pixbuf2', 'gettext', 'giflib', 'git', 'glew',
+            'glib-networking', 'glib2', 'glibc', 'glibmm', 'glslang', 'glu',
+            'gmp', 'gnupg', 'gnutls', 'go', 'gobject-introspection', 'gpgme',
+            'gpm', 'granite', 'graphene', 'graphite', 'grep', 'groff', 'grub',
+            'gsettings-desktop-schemas', 'gsm', 'gssdp', 'gstreamer', 'gtest',
+            'gtk-update-icon-cache', 'gtk3', 'gtk4', 'gtkmm3', 'gupnp', 'gupnp-igd',
+            'gzip', 'harfbuzz', 'hicolor-icon-theme', 'hidapi', 'highway', 'htop',
+            'hwdata', 'hwloc', 'hyphen', 'iana-etc', 'icu', 'imath', 'imlib2',
+            'iproute2', 'iptables', 'iputils', 'iso-codes', 'jack2', 'jansson',
+            'jasper', 'jbig2dec', 'jemalloc', 'jfsutils', 'json-c', 'json-glib',
+            'jsoncpp', 'kbd', 'keyutils', 'kmod', 'krb5', 'l-smash', 'lame',
+            'lcms2', 'ldns', 'less', 'lib32-gcc-libs', 'lib32-glibc', 'libaio',
+            'libarchive', 'libass', 'libassuan', 'libasyncns', 'libavc1394',
+            'libbluray', 'libbs2b', 'libcap', 'libcap-ng', 'libcddb', 'libcdio',
+            'libcdio-paranoia', 'libcloudproviders', 'libconfig', 'libcups',
+            'libdaemon', 'libdatrie', 'libdbusmenu', 'libdc1394', 'libde265',
+            'libdecor', 'libdmtx', 'libdrm', 'libdv', 'libdvbpsi', 'libdvdnav',
+            'libdvdread', 'libedit', 'libelf', 'libepoxy', 'libevdev', 'libevent',
+            'libexif', 'libffi', 'libfontenc', 'libfreeaptx', 'libgcrypt',
+            'libgirepository', 'libglvnd', 'libgpg-error', 'libgudev', 'libheif',
+            'libice', 'libid3tag', 'libidn', 'libidn2', 'libiec61883', 'libimobiledevice',
+            'libinih', 'libinput', 'libinstpatch', 'libiptables', 'libjack', 'libjpeg-turbo',
+            'libjxl', 'libksba', 'libldac', 'libldap', 'liblqr', 'liblrdf',
+            'libmad', 'libmatroska', 'libmd', 'libmediainfo', 'libmfx', 'libmicrohttpd',
+            'libmikmod', 'libmm-glib', 'libmnl', 'libmodplug', 'libmpc', 'libmpdclient',
+            'libmpeg2', 'libmspub', 'libmtp', 'libmysofa', 'libndp', 'libnetfilter_conntrack',
+            'libnewt', 'libnfnetlink', 'libnftnl', 'libnghttp2', 'libnghttp3', 'libnl',
+            'libnm', 'libnma', 'libnotify', 'libnsl', 'libnuma', 'libogg', 'libomxil-bellagio',
+            'libopenmpt', 'libp11-kit', 'libpcap', 'libpciaccess', 'libpgm', 'libpipeline',
+            'libplist', 'libpng', 'libproxy', 'libpsl', 'libpulse', 'libraw1394',
+            'librsvg', 'libsamplerate', 'libsasl', 'libseccomp', 'libsecret',
+            'libshout', 'libslirp', 'libsm', 'libsmbclient', 'libsndfile',
+            'libsoup', 'libsoup3', 'libsoxr', 'libssh', 'libssh2', 'libstemmer',
+            'libtalloc', 'libtasn1', 'libteam', 'libthai', 'libtheora', 'libtiff',
+            'libtirpc', 'libtool', 'libunistring', 'libunwind', 'libupnp',
+            'libusb', 'libusbmuxd', 'libutempter', 'libuv', 'libva', 'libvdpau',
+            'libvisual', 'libvorbis', 'libvpx', 'libwacom', 'libwebp', 'libwmf',
+            'libwnck3', 'libx11', 'libxau', 'libxaw', 'libxcb', 'libxcomposite',
+            'libxcrypt', 'libxcursor', 'libxdamage', 'libxdmcp', 'libxext',
+            'libxfont2', 'libxft', 'libxi', 'libxinerama', 'libxkbcommon',
+            'libxkbcommon-x11', 'libxkbfile', 'libxml2', 'libxmu', 'libxpm',
+            'libxrandr', 'libxrender', 'libxres', 'libxshmfence', 'libxslt',
+            'libxss', 'libxt', 'libxtst', 'libxv', 'libxvmc', 'libxxf86vm',
+            'libyaml', 'libyuv', 'licenses', 'lilv', 'linux', 'linux-api-headers',
+            'linux-firmware', 'llvm-libs', 'lm_sensors', 'lmdb', 'logrotate',
+            'lsb-release', 'lvm2', 'lz4', 'lzo', 'm4', 'make', 'man-db',
+            'man-pages', 'mbedtls', 'md4c', 'mesa', 'minizip', 'mkinitcpio',
+            'mkinitcpio-busybox', 'mobile-broadband-provider-info', 'mpg123',
+            'mtdev', 'mujs', 'nano', 'ncurses', 'ndctl', 'neon', 'net-tools',
+            'netctl', 'nettle', 'network-manager-applet', 'networkmanager',
+            'nfsidmap', 'nginx', 'nilfs-utils', 'ninja', 'nm-connection-editor',
+            'nodejs', 'noto-fonts', 'noto-fonts-cjk', 'noto-fonts-emoji',
+            'npth', 'nspr', 'nss', 'numactl', 'openal', 'opencore-amr',
+            'openexr', 'openjpeg2', 'openssh', 'openssl', 'openvpn', 'opus',
+            'orc', 'p11-kit', 'p7zip', 'pacman', 'pacman-mirrorlist', 'pam',
+            'pambase', 'pango', 'pangomm', 'parted', 'patch', 'pciutils',
+            'pcre', 'pcre2', 'pcsclite', 'perl', 'pinentry', 'pipewire',
+            'pixman', 'pkcs11-helper', 'pkgconf', 'polkit', 'popt', 'portaudio',
+            'procps-ng', 'protobuf', 'protobuf-c', 'psmisc', 'pulseaudio',
+            'python', 'python-anyio', 'python-appdirs', 'python-asn1crypto',
+            'python-attrs', 'python-beautifulsoup4', 'python-cairo',
+            'python-certifi', 'python-cffi', 'python-chardet', 'python-charset-normalizer',
+            'python-click', 'python-colorama', 'python-cryptography',
+            'python-dateutil', 'python-dbus', 'python-distro', 'python-docopt',
+            'python-gobject', 'python-idna', 'python-inflate64', 'python-jinja',
+            'python-markdown-it', 'python-markupsafe', 'python-more-itertools',
+            'python-multivolumefile', 'python-numpy', 'python-ordered-set',
+            'python-packaging', 'python-pillow', 'python-pip', 'python-platformdirs',
+            'python-psutil', 'python-py7zr', 'python-pybcj', 'python-pycparser',
+            'python-pycryptodomex', 'python-pygments', 'python-pyparsing',
+            'python-pyperclip', 'python-pyppmd', 'python-pyzstd', 'python-requests',
+            'python-resolvelib', 'python-rich', 'python-setuptools', 'python-six',
+            'python-soupsieve', 'python-texttable', 'python-toml', 'python-tomli',
+            'python-urllib3', 'python-websockets', 'python-yaml', 'python-zeroconf',
+            'qrencode', 'qt5-base', 'qt5-declarative', 'qt5-graphicaleffects',
+            'qt5-imageformats', 'qt5-multimedia', 'qt5-quickcontrols',
+            'qt5-quickcontrols2', 'qt5-svg', 'qt5-tools', 'qt5-translations',
+            'qt5-wayland', 'qt5-x11extras', 'qt6-base', 'qt6-declarative',
+            'qt6-multimedia', 'qt6-svg', 'qt6-translations', 'qt6-wayland',
+            'rav1e', 're2', 'readline', 'rpcbind', 'rtmpdump', 'rubberband',
+            'run-parts', 'rust', 'samba', 'sbc', 'sdl2', 'sed', 'serd',
+            'shaderc', 'shadow', 'shared-mime-info', 'slang', 'smartmontools',
+            'snappy', 'sord', 'speex', 'speexdsp', 'sqlite', 'sratom',
+            'srt', 'startup-notification', 'sudo', 'systemd', 'systemd-libs',
+            'systemd-sysvcompat', 'tar', 'tcl', 'tcpdump', 'tecla', 'texinfo',
+            'thin-provisioning-tools', 'tmux', 'tor', 'tpm2-tss', 'traceroute',
+            'tree', 'tslib', 'ttf-dejavu', 'ttf-liberation', 'tzdata', 'unibilium',
+            'unzip', 'upower', 'usbmuxd', 'usbutils', 'util-linux', 'util-linux-libs',
+            'v4l-utils', 'vala', 'vid.stab', 'vmaf', 'vulkan-headers',
+            'vulkan-icd-loader', 'vulkan-intel', 'vulkan-radeon', 'wayland',
+            'wayland-protocols', 'webp-pixbuf-loader', 'which', 'wildmidi',
+            'wireless_tools', 'wireplumber', 'wpa_supplicant', 'x265', 'xcb-proto',
+            'xcb-util', 'xcb-util-image', 'xcb-util-keysyms', 'xcb-util-renderutil',
+            'xcb-util-wm', 'xclip', 'xdg-dbus-proxy', 'xdg-utils', 'xf86-input-libinput',
+            'xfsprogs', 'xkeyboard-config', 'xmlsec', 'xorg-server', 'xorg-setxkbmap',
+            'xorg-xauth', 'xorg-xinit', 'xorg-xinput', 'xorg-xkbcomp', 'xorg-xkill',
+            'xorg-xmessage', 'xorg-xmodmap', 'xorg-xprop', 'xorg-xrandr', 'xorg-xrdb',
+            'xorg-xset', 'xorg-xsetroot', 'xorgproto', 'xvidcore', 'xz', 'yarn',
+            'zeromq', 'zimg', 'zlib', 'zstd'
+        ];
+
+        const searchResults = [
+            { name: 'gst-plugin-spotify', version: '0.15.1-1', desc: 'Multimedia graph framework - spotify plugin', installed: false },
+            { name: 'librespot', version: '0.8.0-5', desc: 'Open source client library for Spotify', installed: false },
+            { name: 'ncspot', version: '1.3.3-2', desc: 'Cross-platform ncurses Spotify client written in Rust, inspired by ncmpc and the likes', installed: false },
+            { name: 'playerctl', version: '2.4.1-5', desc: 'mpris media player controller and lib for spotify, vlc, audacious, bmp, xmms2, and others', installed: false },
+            { name: 'python-tekore', version: '6.1.0-2', desc: 'Client for the Spotify Web API', installed: false },
+            { name: 'spotify-launcher', version: '0.6.5-1', desc: "Client for spotify's apt repository in Rust for Arch Linux", installed: false },
+            { name: 'spotify-player', version: '0.23.0-1', desc: 'A command driven spotify player', installed: false },
+        ];
+
+        // ==================== RENDER ====================
+        function renderPackages(packages, title, isInstalledView = false) {
+            document.getElementById('listTitle').textContent = `// ${title}`;
+            const container = document.getElementById('listContent');
+            container.innerHTML = '';
+
+            packages.forEach((pkg, i) => {
+                const item = document.createElement('div');
+                item.className = 'package-item';
+
+                const name = typeof pkg === 'string' ? pkg : pkg.name;
+                const desc = typeof pkg === 'string' ? '' : pkg.desc;
+                const version = typeof pkg === 'string' ? '' : (pkg.version || '');
+                const installed = typeof pkg === 'string' ? true : pkg.installed;
+
+                let actionsHTML = '';
+                if (installed) {
+                    actionsHTML = `
+                        <span class="status-badge">УСТАНОВЛЕН</span>
+                        <button class="btn btn-danger btn-small" onclick="removePackage('${name}')">Удалить</button>
+                    `;
+                } else {
+                    actionsHTML = `<button class="btn btn-primary btn-small" onclick="installPackage('${name}')">Установить</button>`;
+                }
+
+                item.innerHTML = `
+                    <div class="package-info">
+                        <div class="package-name">
+                            ${name}
+                            ${version ? `<span class="version">${version}</span>` : ''}
+                        </div>
+                        ${desc ? `<div class="package-desc">${desc}</div>` : ''}
+                    </div>
+                    <div class="package-actions">
+                        ${actionsHTML}
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function selectDistro(el) {
+            document.querySelectorAll('.distro-item').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            currentDistro = el.dataset.distro;
+            const config = distroConfig[currentDistro];
+            document.getElementById('windowTitle').textContent = `EasyPkg — ${config.name}`;
+            showPopular();
+        }
+
+        function showPopular() {
+            currentView = 'popular';
+            renderPackages(popularPackages, 'Популярные пакеты');
+        }
+
+        function showInstalled() {
+            currentView = 'installed';
+            const pkgs = installedPackages.slice(0, 100).map(name => ({ name, desc: '', installed: true }));
+            renderPackages(pkgs, 'Установленные пакеты', true);
+        }
+
+        function doSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                // Если строка пустая — возвращаем популярные пакеты с обновлённым состоянием
+                showPopular();
+                return;
+            }
+            currentView = 'search';
+            // Объединяем searchResults с popularPackages для поиска
+            const allPackages = [...popularPackages, ...searchResults];
+            const filtered = allPackages.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            renderPackages(filtered, `Результаты: ${query.toUpperCase()}`);
+        }
+
+        // ==================== INSTALL / REMOVE with terminal ====================
+        function installPackage(name) {
+            const modal = document.getElementById('actionModal');
+            const title = document.getElementById('modalTitle');
+            const term = document.getElementById('terminal');
+            const closeBtn = document.getElementById('modalCloseBtn');
+            const config = distroConfig[currentDistro];
+
+            modal.classList.add('active');
+            title.textContent = `:: УСТАНОВКА: ${name}`;
+            term.innerHTML = '';
+            closeBtn.style.display = 'none';
+
+            // Для Fedora — симулируем ошибку "command not found" если dnf не установлен (как на скриншоте)
+            const lines = config.installLines(name);
+
+            let cumulativeDelay = 0;
+            lines.forEach((line, i) => {
+                cumulativeDelay += (i === 0 ? 100 : 200 + Math.random() * 400);
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'line ' + line.cls;
+                    div.textContent = line.cls === 'cmd' ? line.text : (line.cls === 'success' || line.cls === 'error' ? line.text.replace(/^[✓✗] /, '') : line.text);
+                    term.appendChild(div);
+                    term.scrollTop = term.scrollHeight;
+
+                    if (line.cls === 'success') {
+                        closeBtn.style.display = 'inline-block';
+                        // Обновляем состояние пакета
+                        updatePackageState(name, true);
+                    }
+                    if (line.cls === 'error') {
+                        closeBtn.style.display = 'inline-block';
+                    }
+                }, cumulativeDelay);
+            });
+        }
+
+        function removePackage(name) {
+            const modal = document.getElementById('actionModal');
+            const title = document.getElementById('modalTitle');
+            const term = document.getElementById('terminal');
+            const closeBtn = document.getElementById('modalCloseBtn');
+            const config = distroConfig[currentDistro];
+
+            modal.classList.add('active');
+            title.textContent = `:: УДАЛЕНИЕ: ${name}`;
+            term.innerHTML = '';
+            closeBtn.style.display = 'none';
+
+            const lines = config.removeLines(name);
+
+            let cumulativeDelay = 0;
+            lines.forEach((line, i) => {
+                cumulativeDelay += (i === 0 ? 100 : 200 + Math.random() * 400);
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'line ' + line.cls;
+                    div.textContent = line.cls === 'cmd' ? line.text : (line.cls === 'success' ? line.text.replace(/^✓ /, '') : line.text);
+                    term.appendChild(div);
+                    term.scrollTop = term.scrollHeight;
+
+                    if (line.cls === 'success') {
+                        closeBtn.style.display = 'inline-block';
+                        // Обновляем состояние пакета — устанавливаем installed = false
+                        updatePackageState(name, false);
+                    }
+                }, cumulativeDelay);
+            });
+        }
+
+        function updatePackageState(name, isInstalled) {
+            // Обновляем в popularPackages
+            const pkg = popularPackages.find(p => p.name === name);
+            if (pkg) {
+                pkg.installed = isInstalled;
+            }
+            // Обновляем в searchResults
+            const searchPkg = searchResults.find(p => p.name === name);
+            if (searchPkg) {
+                searchPkg.installed = isInstalled;
+            }
+            // Если сейчас показываем популярные пакеты — перерендериваем
+            if (currentView === 'popular') {
+                showPopular();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('actionModal').classList.remove('active');
+            // При закрытии модалки, если мы на popular — обновляем отображение
+            if (currentView === 'popular') {
+                showPopular();
+            }
+        }
+
+        // ==================== SETUP ====================
+        function skipSetup() {
+            document.getElementById('setupScreen').classList.remove('active');
+            showPopular();
+        }
+
+        function completeSetup() {
+            const pwd = document.getElementById('setupPassword').value;
+            const preview = document.getElementById('setupTerminalPreview');
+
+            if (!pwd) {
+                preview.innerHTML = `
+                    <div class="cmd-line">sudo -S sh -c '...'</div>
+                    <div style="color:var(--red); margin-top:4px">✗ Необходимо ввести пароль sudo</div>
+                `;
+                return;
+            }
+
+            preview.innerHTML = `
+                <div class="cmd-line">sudo -S sh -c '...'</div>
+                <div style="color:var(--dim); margin-top:4px">[sudo] password for user: ••••••••</div>
+                <div style="color:var(--dim)">/etc/sudoers.d/easypkg.tmp: parsed OK</div>
+                <div class="ok-line">Готово. Пароль больше не потребуется.</div>
+            `;
+
+            setTimeout(() => {
+                document.getElementById('setupScreen').classList.remove('active');
+                showPopular();
+            }, 1200);
+        }
+
+        // ==================== INIT ====================
+        showPopular();
+    </script>
+</body>
+</html>

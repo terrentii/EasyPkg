@@ -22,7 +22,7 @@ class PackageManager:
         if self.manager == "apt":
             rc, _, err = run_sudo(["apt", "install", "-y", package], password)
         elif self.manager == "pacman":
-            rc, _, err = run_sudo(["pacman", "-S", "--noconfirm", package], password)
+            rc, _, err = run_sudo(["pacman", "-Sy", "--noconfirm", "--needed", package], password)
         elif self.manager == "dnf":
             rc, _, err = run_sudo(["dnf", "install", "-y", package], password)
         else:

@@ -1,26 +1,19 @@
+import os
 import sys
 from PyQt6 import sip
 from PyQt6.QtWidgets import (
-    QApplication, QFrame, QLabel, QPushButton,
+    QApplication, QFrame, QHBoxLayout, QLabel, QPushButton,
     QVBoxLayout, QSizePolicy, QMessageBox,
-    QScrollArea, QWidget, QGridLayout,
+    QScrollArea, QWidget,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.uic import loadUi
 from core.distro_detector import get_distro_info
 from core.pkg_manager import PackageManager
 from core.worker import SearchWorker, InstalledWorker, InstallWorker, RemoveWorker
 from ui.password_dialog import PasswordDialog
-
-# Популярные пакеты по категориям для сайдбара
-POPULAR_QUERIES = {
-    "Arch Linux (pacman)": "git",
-    "Fedora (dnf)": "git",
-    "Debian / Ubuntu (apt)": "git",
-    "Astra Linux (SE)": "git",
-    "РЕД ОС": "git",
-    "ALT Linux / МОС": "git",
-}
+from ui.title_bar import TitleBar
+from ui.resize_filter import ResizeFilter
 
 DISTRO_ITEM_MAP = {
     "arch": "Arch Linux (pacman)",
@@ -42,8 +35,32 @@ DISTRO_ITEM_MAP = {
     "mos": "ALT Linux / МОС",
 }
 
-# Keep worker references alive to avoid GC during background threads
 _active_workers = []
+_installed_names: set[str] = set()
+
+_SPINNER = ["▰▱▱▱", "▱▰▱▱", "▱▱▰▱", "▱▱▱▰", "▱▱▰▱", "▱▰▱▱"]
+
+
+class ButtonSpinner:
+    """Анимирует кнопку пока идёт фоновая операция."""
+    def __init__(self, btn: QPushButton, label: str):
+        self._btn = btn
+        self._label = label
+        self._idx = 0
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(120)
+
+    def _tick(self):
+        if sip.isdeleted(self._btn):
+            self.stop()
+            return
+        frame = _SPINNER[self._idx % len(_SPINNER)]
+        self._btn.setText(f"{frame}  {self._label}")
+        self._idx += 1
+
+    def stop(self):
+        self._timer.stop()
 
 
 def main():
@@ -56,34 +73,63 @@ def main():
     window.menuBar().setVisible(False)
     window.statusBar().setVisible(False)
 
-    # Оборачиваем PkgsLayout в QScrollArea
+    # ── Убираем стандартный фрейм, добавляем кастомный тайтлбар ──
+    window.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+    titlebar = TitleBar()
+    central = window.centralWidget()
+    wrapper = QWidget()
+    wrapper.setObjectName("AppWrapper")
+    wrapper_layout = QVBoxLayout(wrapper)
+    wrapper_layout.setSpacing(0)
+    wrapper_layout.setContentsMargins(0, 0, 0, 0)
+    wrapper_layout.addWidget(titlebar)
+    wrapper_layout.addWidget(central)
+    window.setCentralWidget(wrapper)
+    ResizeFilter(window)
+
+    # ── Перестраиваем PkgsFrame: section title + scroll area ──
+    pkg_frame_layout = window.PkgsFrame.layout()
+    while pkg_frame_layout.count():
+        item = pkg_frame_layout.takeAt(0)
+        if item.widget():
+            item.widget().deleteLater()
+        elif item.layout():
+            # очищаем вложенные layout
+            pass
+
+    section_title = QLabel("// ПОПУЛЯРНЫЕ ПАКЕТЫ")
+    section_title.setObjectName("section_title")
+    section_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    scroll_content = QWidget()
-    scroll_grid = QGridLayout(scroll_content)
-    scroll_grid.setSpacing(8)
-    scroll_grid.setContentsMargins(8, 8, 8, 8)
-    scroll.setWidget(scroll_content)
-    # Заменяем содержимое PkgsFrame на scroll
-    old_layout = window.PkgsFrame.layout()
-    while old_layout.count():
-        item = old_layout.takeAt(0)
-        if item.widget():
-            item.widget().deleteLater()
-    old_layout.addWidget(scroll)
-    # Перенаправляем window.PkgsLayout на новый grid внутри скролла
-    window.PkgsLayout = scroll_grid
 
+    scroll_content = QWidget()
+    scroll_content.setStyleSheet("background-color: #0c0c0c;")
+    pkg_list_layout = QVBoxLayout(scroll_content)
+    pkg_list_layout.setSpacing(0)
+    pkg_list_layout.setContentsMargins(0, 0, 0, 0)
+    pkg_list_layout.addStretch()
+
+    scroll.setWidget(scroll_content)
+
+    pkg_frame_layout.addWidget(section_title, 0, 0)
+    pkg_frame_layout.addWidget(scroll, 1, 0)
+    pkg_frame_layout.setSpacing(0)
+    pkg_frame_layout.setContentsMargins(0, 0, 0, 0)
+    pkg_frame_layout.setColumnStretch(0, 1)
+    pkg_frame_layout.setRowStretch(1, 1)
+
+    # ── Инфо о системе ──
     info = get_distro_info()
     print(f"🐧 Система: {info['name']} | Менеджер: {info['manager']}")
-    window.setWindowTitle(f"EasyPkg — {info['name']}")
 
     pkg = PackageManager.from_manager(info["manager"]) if info["manager"] else None
 
-    # === НАСТРОЙКА ИНТЕРФЕЙСА ===
-
-    window.ManagersLabel.setText("Выберите дистрибутив")
+    # ── Сайдбар ──
+    window.ManagersLabel.setText("// ДИСТРИБУТИВ")
+    window.InstalledButton.setText("▼ СКАЧАННЫЕ ПАКЕТЫ")
 
     window.ManagersListWidget.clear()
     distros = [
@@ -96,77 +142,105 @@ def main():
     ]
     window.ManagersListWidget.addItems(distros)
 
-    # === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+    # ── Вспомогательные функции ──
+
+    base_title = f"◈ EasyPkg — {info['name']}"
+    titlebar.set_title(base_title)
 
     def set_status(text: str):
-        window.setWindowTitle(f"EasyPkg — {info['name']}  |  {text}")
+        titlebar.set_title(f"◈ EasyPkg — {info['name']}  |  {text}")
 
     def reset_status():
-        window.setWindowTitle(f"EasyPkg — {info['name']}")
+        titlebar.set_title(base_title)
 
-    def clear_grid():
-        layout = window.PkgsLayout
-        while layout.count():
-            item = layout.takeAt(0)
+    def set_section_title(text: str):
+        section_title.setText(f"// {text.upper()}")
+
+    def clear_list():
+        while pkg_list_layout.count() > 1:  # оставляем stretch в конце
+            item = pkg_list_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
     def show_error(msg: str):
         QMessageBox.critical(window, "Ошибка", msg)
 
-    def make_card(name: str, desc: str, is_installed: bool = False):
-        card = QFrame()
-        card.setObjectName("package_card")
+    def make_row(name: str, desc: str, is_installed: bool = False):
+        row = QFrame()
+        row.setObjectName("package_row")
+        row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-        v_layout = QVBoxLayout(card)
-        v_layout.setContentsMargins(10, 10, 10, 10)
-        v_layout.setSpacing(4)
+        h = QHBoxLayout(row)
+        h.setContentsMargins(16, 14, 16, 14)
+        h.setSpacing(12)
+
+        # Левая часть: имя + описание
+        info_widget = QWidget()
+        info_widget.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(info_widget)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(3)
 
         lbl_name = QLabel(name)
         lbl_name.setObjectName("pkg_name")
+        lbl_name.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
 
-        lbl_desc = QLabel(desc or "Нет описания")
+        lbl_desc = QLabel(desc or "")
         lbl_desc.setObjectName("pkg_desc")
-        lbl_desc.setWordWrap(True)
+        lbl_desc.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+
+        v.addWidget(lbl_name)
+        if desc:
+            v.addWidget(lbl_desc)
+
+        info_widget.setMinimumWidth(0)
+        h.addWidget(info_widget, stretch=1)
+
+        # Правая часть: badge + кнопка
+        actions = QWidget()
+        actions.setStyleSheet("background: transparent;")
+        a = QHBoxLayout(actions)
+        a.setContentsMargins(0, 0, 0, 0)
+        a.setSpacing(8)
 
         if is_installed:
-            btn = QPushButton("🗑️")
+            badge = QLabel("УСТАНОВЛЕН")
+            badge.setObjectName("status_badge")
+            a.addWidget(badge)
+
+            btn = QPushButton("УДАЛИТЬ")
             btn.setObjectName("remove_btn")
-            btn.setToolTip("Удалить пакет")
         else:
-            btn = QPushButton("⬇️")
+            btn = QPushButton("УСТАНОВИТЬ")
             btn.setObjectName("install_btn")
-            btn.setToolTip("Установить пакет")
 
-        btn.setFixedSize(34, 34)
+        a.addWidget(btn)
+        h.addWidget(actions)
 
-        v_layout.addWidget(lbl_name)
-        v_layout.addWidget(lbl_desc)
-        v_layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignRight)
-
-        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-
+        # Логика кнопок
         if is_installed:
             def on_remove(checked=False, _name=name, _btn=btn):
-                dialog = PasswordDialog(window, f"Введите пароль sudo для удаления «{_name}»:")
+                dialog = PasswordDialog(window, f"Пароль sudo для удаления «{_name}»:")
                 password = dialog.get_password()
                 if password is None:
                     return
                 _btn.setEnabled(False)
-                _btn.setText("⏳")
                 set_status(f"Удаляем {_name}…")
+                spinner = ButtonSpinner(_btn, "УДАЛЕНИЕ")
                 worker = RemoveWorker(pkg, _name, password)
                 _active_workers.append(worker)
 
-                def on_done(success: bool, msg: str, _w=worker, _b=_btn, _n=_name):
+                def on_done(success: bool, msg: str, _w=worker, _b=_btn, _n=_name, _s=spinner):
+                    _s.stop()
                     reset_status()
                     if not sip.isdeleted(_b):
                         if success:
-                            _b.setText("✅")
-                            _b.setStyleSheet("color: #34d399;")
+                            _installed_names.discard(_n)
+                            _b.setText("УДАЛЁН")
+                            _b.setStyleSheet("color: #50fa7b; border-color: #50fa7b;")
                         else:
                             _b.setEnabled(True)
-                            _b.setText("🗑️")
+                            _b.setText("УДАЛИТЬ")
                             show_error(f"Не удалось удалить {_n}:\n{msg}")
                     if _w in _active_workers:
                         _active_workers.remove(_w)
@@ -177,25 +251,30 @@ def main():
             btn.clicked.connect(on_remove)
         else:
             def on_install(checked=False, _name=name, _btn=btn):
-                dialog = PasswordDialog(window, f"Введите пароль sudo для установки «{_name}»:")
+                dialog = PasswordDialog(window, f"Пароль sudo для установки «{_name}»:")
                 password = dialog.get_password()
                 if password is None:
                     return
                 _btn.setEnabled(False)
-                _btn.setText("⏳")
                 set_status(f"Устанавливаем {_name}…")
+                spinner = ButtonSpinner(_btn, "УСТАНОВКА")
                 worker = InstallWorker(pkg, _name, password)
                 _active_workers.append(worker)
 
-                def on_done(success: bool, msg: str, _w=worker, _b=_btn, _n=_name):
+                def on_done(success: bool, msg: str, _w=worker, _b=_btn, _n=_name, _s=spinner):
+                    _s.stop()
                     reset_status()
                     if not sip.isdeleted(_b):
                         if success:
-                            _b.setText("✅")
-                            _b.setStyleSheet("color: #34d399;")
+                            _installed_names.add(_n)
+                            _b.setText("УСТАНОВЛЕН")
+                            _b.setStyleSheet(
+                                "background: transparent; color: #50fa7b;"
+                                "border: 2px solid #50fa7b;"
+                            )
                         else:
                             _b.setEnabled(True)
-                            _b.setText("⬇️")
+                            _b.setText("УСТАНОВИТЬ")
                             show_error(f"Не удалось установить {_n}:\n{msg}")
                     if _w in _active_workers:
                         _active_workers.remove(_w)
@@ -205,19 +284,22 @@ def main():
 
             btn.clicked.connect(on_install)
 
-        return card
+        return row
 
-    def show_results(results: list[dict], is_installed: bool = False):
-        clear_grid()
+    def show_results(results: list[dict], title: str = "РЕЗУЛЬТАТЫ", force_installed: bool = False):
+        clear_list()
+        set_section_title(title)
         if not results:
             placeholder = QLabel("Ничего не найдено")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            window.PkgsLayout.addWidget(placeholder, 0, 0)
+            placeholder.setStyleSheet("color: #4a4a4a; padding: 32px;")
+            pkg_list_layout.insertWidget(0, placeholder)
             return
-        col_count = 2
         for i, pkg_info in enumerate(results):
-            card = make_card(pkg_info["name"], pkg_info.get("description", ""), is_installed)
-            window.PkgsLayout.addWidget(card, i // col_count, i % col_count)
+            name = pkg_info["name"]
+            installed = force_installed or (name in _installed_names)
+            row = make_row(name, pkg_info.get("description", ""), installed)
+            pkg_list_layout.insertWidget(i, row)
 
     def show_search_error(msg: str):
         reset_status()
@@ -231,9 +313,9 @@ def main():
         worker = SearchWorker(pkg, query)
         _active_workers.append(worker)
 
-        def on_results(results: list, _w=worker):
+        def on_results(results: list, _w=worker, _q=query):
             reset_status()
-            show_results(results, is_installed=False)
+            show_results(results, title=f"ПОИСК: {_q.upper()}", force_installed=False)
             if _w in _active_workers:
                 _active_workers.remove(_w)
 
@@ -246,9 +328,9 @@ def main():
         worker.error.connect(on_error)
         worker.start()
 
-    # === ОБРАБОТЧИКИ СОБЫТИЙ ===
+    # ── Обработчики событий ──
 
-    def on_distro_click(item):
+    def on_distro_click(_item):
         query = window.SearchbarLineEdit.text().strip() or "git"
         do_search(query)
 
@@ -263,7 +345,7 @@ def main():
 
         def on_results(results: list, _w=worker):
             reset_status()
-            show_results(results, is_installed=True)
+            show_results(results, title="УСТАНОВЛЕННЫЕ ПАКЕТЫ", force_installed=True)
             if _w in _active_workers:
                 _active_workers.remove(_w)
 
@@ -286,8 +368,7 @@ def main():
     window.SearchButton.clicked.connect(on_search)
     window.SearchbarLineEdit.returnPressed.connect(on_search)
 
-    # Автовыбор текущего дистрибутива в сайдбаре
-    import os
+    # Автовыбор дистрибутива в сайдбаре
     dist_id = ""
     if os.path.exists("/etc/os-release"):
         with open("/etc/os-release") as f:
@@ -302,8 +383,21 @@ def main():
             window.ManagersListWidget.setCurrentRow(i)
             break
 
-    # Начальный поиск популярных пакетов
     do_search("git")
+
+    # Тихо грузим кеш установленных пакетов в фоне
+    if pkg:
+        cache_worker = InstalledWorker(pkg)
+        _active_workers.append(cache_worker)
+
+        def on_cache_ready(results: list, _w=cache_worker):
+            for r in results:
+                _installed_names.add(r["name"])
+            if _w in _active_workers:
+                _active_workers.remove(_w)
+
+        cache_worker.results_ready.connect(on_cache_ready)
+        cache_worker.start()
 
     window.show()
     sys.exit(app.exec())
